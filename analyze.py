@@ -1,5 +1,7 @@
 #!/usr/bin/python
 
+# Copyright Gregory Price, 2023
+#
 # RESTRICTIVE SOFTWARE LICENSE AGREEMENT
 #
 # This License Agreement ("Agreement") is a legal agreement between you ("Licensee")

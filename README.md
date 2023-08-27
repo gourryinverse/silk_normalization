@@ -12,6 +12,9 @@ do it all in one script.
 To run:
 ./analyze.py
 
+To reset the database before executing the pipeline:
+./analyze.py --reset
+
 The output will be deduplicated metadata records that maintain pointers
 back to the original records so that additional information can be queried
 or later normalized further.
@@ -20,8 +23,8 @@ or later normalized further.
 
 You will need to create the 'settings.json' file with the following json
 Make sure to apply your token and baseurl to settings.fetcher
-If you do not wish to reset the database between runs, make sure to set
-settings.database.reset = false
+
+To reset the database, change settings.database.reset or use the --reset flag
 
 {
     "pipeline" : {
