@@ -370,8 +370,8 @@ class PipeLine():
         self.database.print_dedup_entries()
         return
 
-with open('settings.json', 'r') as f:
-    settings = JSONWrapper(json.load(f))
-
-pipeline = PipeLine(settings)
-pipeline.Execute()
+if __name__ == "__main__":
+    with open('settings.json', 'r') as f:
+        settings = JSONWrapper(json.load(f))
+    pipeline = PipeLine(settings)
+    pipeline.Execute()
