@@ -384,7 +384,17 @@ class PipeLine():
         return
 
 if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--reset', action='store_true', default=None,
+        help='Reset the database before starting')
+    args = parser.parse_args()
+
     with open('settings.json', 'r') as f:
         settings = JSONWrapper(json.load(f))
+
+    if args.reset is not None:
+        settings.database.reset = args.reset
+
     pipeline = PipeLine(settings)
     pipeline.Execute()
