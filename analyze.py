@@ -349,7 +349,7 @@ class PipeLine():
     database = None
 
     def __init__(self, settings):
-        self.settings = settings
+        self.settings = settings.pipeline
         self.sources = Sources(settings)
         self.fetcher = Fetcher(settings)
         self.database = DBInterface(settings, self.sources)
@@ -386,7 +386,7 @@ class PipeLine():
         for source in self.sources:
             while True:
                 start = self.database.get_last_successful_skip(source, 0)
-                if not self.ExecuteBatch(source, start, self.settings.pipeline.fetch_interval):
+                if not self.ExecuteBatch(source, start, self.settings.fetch_interval):
                     break
         self.database.print_dedup_entries()
         return
