@@ -18,11 +18,39 @@ or later normalized further.
 
 # Settings
 
-You will need to create the 'settings.json' file with the following json:
+You will need to create the 'settings.json' file with the following json
+Make sure to apply your token and baseurl to settings.fetcher
 
 {
-    "baseurl" : "https://api_base_url/",
-    "token" : "your_token"
+    "pipeline" : {
+        "fetch_interval" : 1
+    },
+    "fetcher" : {
+        "base_url" : "your_base_url",
+        "token" : "your_secret"
+    },
+    "database" : {
+        "uri" : "mongodb://localhost:27017/",
+        "name" : "mydatabase",
+        "collections" : {
+            "raw" : "hosts_data",
+            "metadata" : "fetch_metadata",
+            "normalized" : "normalized"
+        }
+
+    },
+    "sources" : {
+        "qualys" : {
+            "name" : "qualys",
+            "endpoint" : "/api/qualys/hosts/get",
+            "index_id" : "_id"
+        },
+        "crowdstrike" : {
+            "name" : "crowdstrike",
+            "endpoint" : "/api/crowdstrike/hosts/get",
+            "index_id" : "device_id"
+        }
+    }
 }
 
 # Collection
