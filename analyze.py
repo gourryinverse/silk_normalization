@@ -285,17 +285,44 @@ class Normalizer():
         self.settings = settings.normalizer
         return
 
+    def validate_fields(self, req:list, data:dict):
+        for field in req:
+            if isinstance(field, str):
+                if field not in data:
+                    return False
+                continue
+            elif not isinstance(field, dict):
+                raise AttributeError(f"Invalidate validation structure [str, dict, ..] only")
+            for subfield, subreq in field.items():
+                if subfield not in data:
+                    return False
+                elif not isinstance(subreq, list):
+                    return False
+                if not self.validate_fields(subreq, data[subfield]):
+                    return False
+        return True
+
     def normalize_crowdstrike(self, source:Source, host:dict, index_value:str) -> NormalData:
+        required_fields = ["local_ip", "mac_address", "hostname"]
+        if not self.validate_fields(required_fields, host):
+            return None
         ip = host["local_ip"]
         mac = host["mac_address"].replace("-",":").lower()
         hostname = host["hostname"].lower()
         return NormalData(ip, mac, hostname)
 
     def normalize_qualys(self, source:Source, host:dict, index_value:str) -> NormalData:
+        required_fields = ["address", "fqdn", {"networkInterface":["list"]}]
+        if not self.validate_fields(required_fields, host):
+            return None
         ip = host["address"].lower()
         hostname = host["fqdn"].lower()
+        interfaces = host["networkInterface"]
         mac = ""
         for interface in host["networkInterface"]["list"]:
+            required_fields = [{"HostAssetInterface":["address"]}]
+            if not self.validate_fields(required_fields, interface):
+                return False
             if interface["HostAssetInterface"]["address"] == ip:
                 mac = interface["HostAssetInterface"]["macAddress"].lower()
         if not mac:
@@ -347,6 +374,7 @@ class PipeLine():
     fetcher = None
     normalizer = None
     database = None
+    disabled_sources = {}
 
     def __init__(self, settings):
         self.settings = settings.pipeline
@@ -357,6 +385,9 @@ class PipeLine():
         return
 
     def ExecuteBatch(self, source:Source, start:int, limit:int) -> bool:
+        # If the source is bad, don't try to do anything
+        if source.name in self.disabled_sources:
+            return False
         # Fetch Data
         hosts = self.fetcher.fetch_hosts(source, start, limit)
         if not hosts:
@@ -365,7 +396,12 @@ class PipeLine():
             # Save the raw data
             index_value = self.database.insert_raw_record(source, host)
             # Normalize the data with a reference back to the raw
-            normal_data = self.normalizer.normalize(source, host, index_value)
+            try:
+                normal_data = self.normalizer.normalize(source, host, index_value)
+            except Exception as e:
+                print(e)
+                self.disabled_sources[source.name] = source
+                return False
             # If successful, add the data to the database
             # DB interface takes care of de-duplication
             if normal_data:
@@ -384,6 +420,9 @@ class PipeLine():
 
     def Execute(self):
         for source in self.sources:
+            # Don't execute over disabled sources
+            if source in self.disabled_sources:
+                continue
             while True:
                 start = self.database.get_last_successful_skip(source, 0)
                 if not self.ExecuteBatch(source, start, self.settings.fetch_interval):
