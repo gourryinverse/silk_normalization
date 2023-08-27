@@ -315,11 +315,11 @@ class Fetcher():
     headers = None
 
     def __init__(self, settings):
-        self.settings = settings
+        self.settings = settings.fetcher
         self.headers = {
             "Content-Type": "application/json",
             "Accept": "application/json",
-            "token": settings.fetcher.token
+            "token": self.settings.token
         }
         return
 
@@ -331,7 +331,7 @@ class Fetcher():
         }
 
         # Sending the POST request to the API endpoint
-        url = self.settings.fetcher.base_url + source.endpoint
+        url = self.settings.base_url + source.endpoint
         response = requests.post(url, params=params, headers=self.headers)
 
         # Check if the response was successful
