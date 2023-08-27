@@ -21,10 +21,15 @@ or later normalized further.
 
 # Settings
 
-You will need to create the 'settings.json' file with the following json
+You will need to modify the default 'settings.json' file to add your base\_url
+and secret token.  To avoid github issues, prefer to use the --settings argument
+with --settings=mysettings.json because this file is gitignored.
+
 Make sure to apply your token and baseurl to settings.fetcher
 
 To reset the database, change settings.database.reset or use the --reset flag
+
+Settings information
 
 {
     "pipeline" : {

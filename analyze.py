@@ -435,9 +435,10 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--reset', action='store_true', default=None,
         help='Reset the database before starting')
+    parser.add_argument('--settings', type=str, default="settings.json", help='settings file')
     args = parser.parse_args()
 
-    with open('settings.json', 'r') as f:
+    with open(args.settings, 'r') as f:
         settings = JSONWrapper(json.load(f))
 
     if args.reset is not None:

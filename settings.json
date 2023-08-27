@@ -1,0 +1,33 @@
+{
+    "pipeline" : {
+        "fetch_interval" : 1
+    },
+    "database" : {
+        "uri" : "mongodb://localhost:27017/",
+        "name" : "mydatabase",
+        "collections" : {
+            "raw" : "hosts_data",
+            "metadata" : "fetch_metadata",
+            "normalized" : "normalized"
+        },
+        "reset" : false
+    },
+    "fetcher" : {
+        "base_url" : "base_url",
+        "token" : "token"
+    },
+    "normalizer" : {
+    },
+    "sources" : {
+        "qualys" : {
+            "name" : "qualys",
+            "endpoint" : "/api/qualys/hosts/get",
+            "index_id" : "_id"
+        },
+        "crowdstrike" : {
+            "name" : "crowdstrike",
+            "endpoint" : "/api/crowdstrike/hosts/get",
+            "index_id" : "device_id"
+        }
+    }
+}
