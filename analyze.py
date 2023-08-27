@@ -227,7 +227,7 @@ def sanitize(data):
             return data.replace("$", "_")
         return data
 
-def store_to_mongodb(collection, host, source, index_key):
+def store_raw_to_mongodb(collection, host, source, index_key):
     host = sanitize(host)
     index_value = source + "_" + str(host[index_key])
     filter_criteria = {"index_id": index_value}
@@ -266,7 +266,7 @@ if __name__ == "__main__":
         index_key = endpoint_info[1]
 
         # To reset your parsing location, uncomment this
-        # Obviously should have a more progrmatic way to do this
+        # Obviously should have a more programatic way to do this
         #update_last_successful_skip(source, 0)
         last_skip = get_last_successful_skip(source)
 
@@ -276,8 +276,21 @@ if __name__ == "__main__":
                 break
 
             for host in hosts:
-                index_value = store_to_mongodb(collection, host, source, index_key)
-                endpoint_info[2](source, host, index_value)
+                # TODO Validate success in these areas
+                # Store the raw data into the collection for referencing later
+                index_value = store_raw_to_mongodb(collection, host, source, index_key)
+                # Normalize the data into a metadata record
+                success = endpoint_info[2](source, host, index_value)
+
+            # Right now this will just end up skipping any records that were fetched
+            # but not necessarily successfully inserted or normalized.  Realistically
+            # I would probably fail if it failed to insert the raw data or record
+            # the record number that failed in a separate database and move on.  If
+            # i failed to normalize, i would place it in a deferred list and try again
+            # later, and if that failed i would report an error for manual inspection.
+            # Either way, we would want to continue on if at all possible, unless we
+            # think the potential for poisoning the database is too high, then we should
+            # fail out immediately on failure of either step.
             update_last_successful_skip(source, last_skip)
             last_skip += 1
     print_dedup_entries()
