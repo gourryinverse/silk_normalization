@@ -91,7 +91,7 @@ class NormalData():
 class Source():
     _data = None
 
-    def __init__(self, data):
+    def __init__(self, data:dict):
         self._data = data
 
     def __getattr__(self, key):
@@ -122,6 +122,7 @@ class Sources():
         return self._sources
 
 class DBInterface():
+    settings = None
     client = None
     db = None
     raw_collection = None
@@ -130,11 +131,12 @@ class DBInterface():
     sources = None
 
     def __init__(self, settings:JSONWrapper, sources:Sources):
-        self.client = MongoClient(settings.database.uri)
-        self.db = self.client[settings.database.name]
-        self.raw_collection = self.db[settings.database.collections.raw]
-        self.metadata_collection = self.db[settings.database.collections.metadata]
-        self.normal_collection = self.db[settings.database.collections.normalized]
+        self.settings = settings.database
+        self.client = MongoClient(self.settings.uri)
+        self.db = self.client[self.settings.name]
+        self.raw_collection = self.db[self.settings.collections.raw]
+        self.metadata_collection = self.db[self.settings.collections.metadata]
+        self.normal_collection = self.db[self.settings.collections.normalized]
         self.sources = sources
         self.reset_database(settings.database.reset)
         return
@@ -277,21 +279,19 @@ class DBInterface():
 
 
 class Normalizer():
-    database = None
-    sources = None
-    def __init__(self, settings, db, sources):
-        self.database = db
-        self.sources = sources
+    settings = None
+
+    def __init__(self, settings):
+        self.settings = settings.normalizer
         return
 
-    def normalize_crowdstrike(self, source:Source, host:dict, index_value:str) -> bool:
+    def normalize_crowdstrike(self, source:Source, host:dict, index_value:str) -> NormalData:
         ip = host["local_ip"]
         mac = host["mac_address"].replace("-",":").lower()
         hostname = host["hostname"].lower()
-        normal_data = NormalData(ip, mac, hostname)
-        return self.database.add_normal_record(source, index_value, normal_data)
+        return NormalData(ip, mac, hostname)
 
-    def normalize_qualys(self, source:Source, host:dict, index_value:str) -> bool:
+    def normalize_qualys(self, source:Source, host:dict, index_value:str) -> NormalData:
         ip = host["address"].lower()
         hostname = host["fqdn"].lower()
         mac = ""
@@ -301,10 +301,9 @@ class Normalizer():
         if not mac:
             print("some error with interface data on record:", host["index_id"])
             return None
-        normal_data = NormalData(ip, mac, hostname)
-        return self.database.add_normal_record(source, index_value, normal_data)
+        return NormalData(ip, mac, hostname)
 
-    def normalize(self, source:Source, host:dict, index_value:str) -> bool:
+    def normalize(self, source:Source, host:dict, index_value:str) -> NormalData:
         normalize_method = "normalize_"+source.name
         if hasattr(self, normalize_method):
             return getattr(self, normalize_method)(source, host, index_value)
@@ -354,7 +353,7 @@ class PipeLine():
         self.sources = Sources(settings)
         self.fetcher = Fetcher(settings)
         self.database = DBInterface(settings, self.sources)
-        self.normalizer = Normalizer(settings, self.database, self.sources)
+        self.normalizer = Normalizer(settings)
         return
 
     def ExecuteBatch(self, source:Source, start:int, limit:int) -> bool:
@@ -363,7 +362,9 @@ class PipeLine():
             return False
         for host in hosts:
             index_value = self.database.insert_raw_record(source, host)
-            success = self.normalizer.normalize(source, host, index_value)
+            normal_data = self.normalizer.normalize(source, host, index_value)
+            if normal_data:
+                self.database.add_normal_record(source, index_value, normal_data)
         # Right now this will just end up skipping any records that were fetched
         # but not necessarily successfully inserted or normalized.  Realistically
         # I would probably fail if it failed to insert the raw data or record
