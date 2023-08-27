@@ -55,7 +55,7 @@ from pymongo import MongoClient
 import json
 
 class JSONWrapper:
-    def __init__(self, data : dict):
+    def __init__(self, data:dict):
         for key, value in data.items():
             if isinstance(value, dict):
                 setattr(self, key, JSONWrapper(value))
@@ -63,7 +63,7 @@ class JSONWrapper:
                 setattr(self, key, value)
         return
 
-    def __getattr__(self, key : str):
+    def __getattr__(self, key:str):
         if key in self.__dict__:
             return self.__dict__[key]
         raise AttributeError(f"'{type(self).__name__}' object has no attribute '{key}'")
@@ -77,7 +77,7 @@ class JSONWrapper:
 class NormalData():
     _data = {}
 
-    def __init__(self, ip : str, mac : str, hostname : str):
+    def __init__(self, ip:str, mac:str, hostname:str):
         self._data = {"ip":ip, "mac":mac, "hostname":hostname}
         return
 
@@ -86,11 +86,26 @@ class NormalData():
             return self._data[key]
         raise AttributeError(f"'{type(self).__name__}' object has no attribute '{key}'")
 
+class Source():
+    _data = None
+
+    def __init__(self, data):
+        self._data = data
+
+    def __getattr__(self, key):
+        if key in self._data:
+            return self._data[key]
+        raise AttributeError(f"'{type(self).__name__}' object has no attribute '{key}'")
+
+    def get_dict(self) -> dict:
+        return self._data
+
+
 class Sources():
     _sources = None
 
-    def __init__(self, settings : JSONWrapper):
-        self._sources = settings.sources
+    def __init__(self, settings:JSONWrapper):
+        self._sources = settings.sources.get_dict()
         return
 
     def __getattr__(self, key):
@@ -99,10 +114,10 @@ class Sources():
         raise AttributeError(f"'{type(self).__name__}' object has no attribute '{key}'")
 
     def __iter__(self):
-        return iter(self._sources)
+        return iter(self._sources.values())
 
-    def get_dict(self):
-        return self._sources.get_dict()
+    def get_dict(self) -> dict:
+        return self._sources
 
 class DBInterface():
     client = None
@@ -112,7 +127,7 @@ class DBInterface():
     normal_collection = None
     sources = None
 
-    def __init__(self, settings : JSONWrapper, sources : Sources):
+    def __init__(self, settings:JSONWrapper, sources:Sources):
         self.client = MongoClient(settings.database.uri)
         self.db = self.client[settings.database.name]
         self.raw_collection = self.db[settings.database.collections.raw]
@@ -122,7 +137,7 @@ class DBInterface():
         self.reset_database(settings.database.reset)
         return
 
-    def reset_database(self, delete_all : bool):
+    def reset_database(self, delete_all:bool):
         if (delete_all):
             self.raw_collection.delete_many({})
             self.metadata_collection.delete_many({})
@@ -136,7 +151,7 @@ class DBInterface():
         self.normal_collection.create_index("ip_mac_hostname", unique=True)
         return
 
-    def get_last_successful_skip(self, source : JSONWrapper, default:int = 0) -> int:
+    def get_last_successful_skip(self, source:Source, default:int = 0) -> int:
         record = self.metadata_collection.find_one({"source": source.get_dict()})
         return record['skip'] if record else default
 
@@ -171,7 +186,7 @@ class DBInterface():
                 return data.replace("$", "_")
             return data
 
-    def insert_raw_record(self, source : JSONWrapper, host : dict) -> str:
+    def insert_raw_record(self, source:Source, host:dict) -> str:
         host = self.sanitize_raw_record(host)
         index_value = source.name + "_" + str(host[source.index_id])
         filter_criteria = {"index_id": index_value}
@@ -193,8 +208,7 @@ class DBInterface():
         )
         return result["value"]
 
-
-    def insert_normal_record(self, ipmachn:str, source:JSONWrapper, index_value:str, data:dict) -> bool:
+    def insert_normal_record(self, ipmachn:str, source:Source, index_value:str, data:NormalData) -> bool:
         record = {
             "silk_id" : self.get_next_silkid(),
             "ip_mac_hostname" : ipmachn,
@@ -212,7 +226,7 @@ class DBInterface():
             # But really we probaly want real error handling here
             return False
 
-    def update_normal_record(self, ipmachn:str, source:JSONWrapper, index_value:str, record:dict) -> bool:
+    def update_normal_record(self, ipmachn:str, source:Source, index_value:str, record:dict) -> bool:
         version = record["version"]
         # Could probably use defaultdict here, but lazy
         if source.name in record["source_ids"]:
@@ -241,7 +255,7 @@ class DBInterface():
         result = self.normal_collection.update_one(criteria, updates, upsert=True)
         return result.upserted_id or result.modified_count > 0
 
-    def add_normal_record(self, source:JSONWrapper, index_value:str, data:dict) -> bool:
+    def add_normal_record(self, source:Source, index_value:str, data:NormalData) -> bool:
         ipmachn = "_".join([data.ip,data.mac,data.hostname])
         criteria = {"ip_mac_hostname": ipmachn}
         record = self.normal_collection.find_one(criteria)
@@ -268,14 +282,14 @@ class Normalizer():
         self.sources = sources
         return
 
-    def normalize_crowdstrike(self, source:JSONWrapper, host:dict, index_value:str) -> bool:
+    def normalize_crowdstrike(self, source:Source, host:dict, index_value:str) -> bool:
         ip = host["local_ip"]
         mac = host["mac_address"].replace("-",":").lower()
         hostname = host["hostname"].lower()
         normal_data = NormalData(ip, mac, hostname)
         return self.database.add_normal_record(source, index_value, normal_data)
 
-    def normalize_qualys(self, source:JSONWrapper, host:dict, index_value:str) -> bool:
+    def normalize_qualys(self, source:Source, host:dict, index_value:str) -> bool:
         ip = host["address"].lower()
         hostname = host["fqdn"].lower()
         mac = ""
@@ -288,12 +302,11 @@ class Normalizer():
         normal_data = NormalData(ip, mac, hostname)
         return self.database.add_normal_record(source, index_value, normal_data)
 
-    def normalize(self, source:JSONWrapper, host:dict, index_value:str) -> bool:
+    def normalize(self, source:Source, host:dict, index_value:str) -> bool:
         normalize_method = "normalize_"+source.name
         if hasattr(self, normalize_method):
             return getattr(self, normalize_method)(source, host, index_value)
         raise AttributeError(f"'{type(self).__name__}' object has no normalize method for Source: '{source.name}'")
-
 
 
 class Fetcher():
@@ -309,7 +322,7 @@ class Fetcher():
         }
         return
 
-    def fetch_hosts(self, source:JSONWrapper, skip:int=0, limit:int=1) -> list:
+    def fetch_hosts(self, source:Source, skip:int=0, limit:int=1) -> list:
         # Payload for the POST request
         params = {
             "skip": skip,
@@ -342,7 +355,7 @@ class PipeLine():
         self.normalizer = Normalizer(settings, self.database, self.sources)
         return
 
-    def ExecuteBatch(self, source:JSONWrapper, start:int, limit:int) -> bool:
+    def ExecuteBatch(self, source:Source, start:int, limit:int) -> bool:
         hosts = self.fetcher.fetch_hosts(source, start, limit)
         if not hosts:
             return False
