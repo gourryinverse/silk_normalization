@@ -119,7 +119,7 @@ class DBInterface():
         self.metadata_collection = self.db[settings.database.collections.metadata]
         self.normal_collection = self.db[settings.database.collections.normalized]
         self.sources = sources
-        self.reset_database(True)
+        self.reset_database(settings.database.reset)
         return
 
     def reset_database(self, delete_all):

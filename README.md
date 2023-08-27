@@ -20,6 +20,8 @@ or later normalized further.
 
 You will need to create the 'settings.json' file with the following json
 Make sure to apply your token and baseurl to settings.fetcher
+If you do not wish to reset the database between runs, make sure to set
+settings.database.reset = false
 
 {
     "pipeline" : {
@@ -36,7 +38,8 @@ Make sure to apply your token and baseurl to settings.fetcher
             "raw" : "hosts_data",
             "metadata" : "fetch_metadata",
             "normalized" : "normalized"
-        }
+        },
+        "reset" : true
 
     },
     "sources" : {
