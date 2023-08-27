@@ -357,12 +357,17 @@ class PipeLine():
         return
 
     def ExecuteBatch(self, source:Source, start:int, limit:int) -> bool:
+        # Fetch Data
         hosts = self.fetcher.fetch_hosts(source, start, limit)
         if not hosts:
             return False
         for host in hosts:
+            # Save the raw data
             index_value = self.database.insert_raw_record(source, host)
+            # Normalize the data with a reference back to the raw
             normal_data = self.normalizer.normalize(source, host, index_value)
+            # If successful, add the data to the database
+            # DB interface takes care of de-duplication
             if normal_data:
                 self.database.add_normal_record(source, index_value, normal_data)
         # Right now this will just end up skipping any records that were fetched
