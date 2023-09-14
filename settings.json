@@ -22,12 +22,20 @@
         "qualys" : {
             "name" : "qualys",
             "endpoint" : "/api/qualys/hosts/get",
-            "index_id" : "_id"
+            "index_id" : "_id",
+            "mechanism": "index"
         },
         "crowdstrike" : {
             "name" : "crowdstrike",
             "endpoint" : "/api/crowdstrike/hosts/get",
-            "index_id" : "device_id"
+            "index_id" : "device_id",
+            "mechanism": "index"
+        },
+        "tenable" : {
+            "name" : "tenable",
+            "endpoint" : "/api/tenable/hosts/get",
+            "index_id" : "_id",
+            "mechanism": "cursor"
         }
     }
 }

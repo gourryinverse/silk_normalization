@@ -330,6 +330,12 @@ class Normalizer():
             return None
         return NormalData(ip, mac, hostname)
 
+    def normalize_tenable(self, source, host:dict, index_value:str) -> NormalData:
+        ip = host["display_ipv4_address"].lower()
+        mac = host["display_mac_address"].lower()
+        hostname = host["display_fqdn"].lower()
+        return NormalData(ip, mac, hostname)
+
     def normalize(self, source:Source, host:dict, index_value:str) -> NormalData:
         normalize_method = "normalize_"+source.name
         if hasattr(self, normalize_method):
@@ -350,6 +356,21 @@ class Fetcher():
         }
         return
 
+    def fetch_hosts_cursor(self, source:Source) -> list:
+        params = {
+            "cursor": "",
+        }
+        hosts = []
+        while True:
+            url = self.settings.base_url + source.endpoint
+            response = requests.post(url, params=params, headers=self.headers)
+            newjson = response.json()
+            if not newjson['hosts']:
+                break
+            hosts += newjson['hosts']
+            params["cursor"] = newjson["cursor"]
+        return hosts
+
     def fetch_hosts(self, source:Source, skip:int=0, limit:int=1) -> list:
         # Payload for the POST request
         params = {
@@ -357,6 +378,8 @@ class Fetcher():
             "limit": limit
         }
 
+        if source.mechanism == "cursor":
+            return self.fetch_hosts_cursor(source);
         # Sending the POST request to the API endpoint
         url = self.settings.base_url + source.endpoint
         response = requests.post(url, params=params, headers=self.headers)
@@ -416,7 +439,7 @@ class PipeLine():
         # think the potential for poisoning the database is too high, then we should
         # fail out immediately on failure of either step.
         self.database.update_last_successful_skip(source, start+limit)
-        return True
+        return source.mechanism == "cursor"
 
     def Execute(self):
         for source in self.sources:
